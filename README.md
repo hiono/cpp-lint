@@ -1,84 +1,61 @@
-# cpp-lint
+# cpp-lint 🤖 [AI Agent Skill]
 
-**AI Agent-Native C++ Linting Pipeline**
+**High-Performance C++ Linting Pipeline built for Autonomous AI Agents.**
 
-`cpp-lint` is a professional-grade C/C++ linting tool designed for modern development workflows where **Autonomous AI Agents** (Gemini CLI, Open Code, GitHub Copilot) collaborate with humans. It provides a deterministic `format → tidy` sequence with multi-threaded execution and multi-format reporting.
-
-## 🚀 Key Advantages
-
-- **Agent-Ready Architecture**: Beyond Markdown, it generates structured **JSON** and industry-standard **SARIF** reports, enabling AI agents to parse issues and apply fixes with 100% accuracy.
-- **Surgical Performance**: Powered by a multi-threaded execution engine and `git ls-files` integration. Scans large-scale projects in seconds, not minutes.
-- **Heuristic Discovery**: Automatically locates `compile_commands.json` across common build patterns (`build/`, `out/`, `target/`).
-- **Clean Workspace Policy**: Artifacts (`.lint/`, SARIF, JSON) are stored within your build directory (`CMAKE_BINARY_DIR`), keeping your project root pristine.
+`cpp-lint` is not just a collection of scripts; it is a **fully-fledged AI Agent Skill**. It equips agents (like Gemini, Claude, and GitHub Copilot) with the procedural knowledge and multi-threaded tools needed to analyze, format, and fix C++ code autonomously with expert-level precision.
 
 ---
 
-## 🛠 Installation
+## 🌟 What makes this a "Skill"?
 
-### Global (Recommended)
-Install once to use across all repositories:
+Unlike a standard CLI tool, this package is designed for **Machine-to-Machine interaction**:
+- **Structured Reasoning**: Includes `SKILL.md` which defines a deterministic logic for agents to follow.
+- **Agent-First Output**: Generates `.lint/report.json` specifically for AI parsing (saves tokens, increases accuracy).
+- **Self-Healing Assets**: Provides `.clang-format/tidy` templates in `assets/` so the agent can fix a broken environment.
+- **Universal Discovery**: Heuristically finds build databases so the agent doesn't need to ask "where is the build folder?".
+
+---
+
+## 🛠 Skill Installation
+
+### 1. Global (Recommended for Personal AI)
+Add to your global agent environment to use across all repositories:
 ```bash
-mkdir -p ~/.agents/skills/
 git clone https://github.com/hiono/cpp-lint ~/.agents/skills/cpp-lint
-export PATH="$HOME/.agents/skills/cpp-lint/scripts:$PATH"
+# Ensure ~/.agents/skills is in your Agent's search path
 ```
 
-### Local (Project-specific)
+### 2. Local (Project Scope)
+Include this in your repository to give every AI Agent access to these capabilities:
 ```bash
 mkdir -p .agents/skills/
-# Extract cpp-lint.skill here
+git submodule add https://github.com/hiono/cpp-lint .agents/skills/cpp-lint
 ```
 
 ---
 
-### Usage
+## 📖 Agent Capabilities
 
-#### Surgical Mode (Changed Files only)
-Perfect for pre-commit checks. Targets staged, unstaged, and untracked files.
-```bash
-cpp-lint changed
-```
-
-#### Automatic Fixing (Replaces CMake tidy-fix)
-Apply suggested fixes automatically. This is **8x faster** and safer than standard CMake targets.
-```bash
-cpp-lint changed --fix
-# or for the full project
-cpp-lint all --fix-errors
-```
-
-#### Full Audit
-Performs a deep scan of the entire repository.
-```bash
-cpp-lint all
-```
-
-### Options
-- `--fix`: Automatically apply suggested fixes.
-- `--fix-errors`: Apply fixes even if compilation errors exist.
-- `--skip-format`: Run static analysis without modifying code style.
-- `-j N`, `--jobs N`: Set parallel worker count (defaults to CPU count).
+When an agent is equipped with this skill, it can:
+1. **`cpp-lint changed`**: Surgically scan only current modifications.
+2. **`cpp-lint --fix`**: Automatically apply C++ best practices (Replaces CMake `tidy-fix`).
+3. **`cpp-lint all`**: Perform a full repository audit in seconds (Parallelized).
 
 ---
 
-## 🤖 Agent Protocol (For AI Users)
-
-When an AI agent triggers this skill, it follows a built-in reasoning protocol:
-1.  **Environment Sync**: Finds/syncs the Compilation Database automatically.
-2.  **Surgical Analysis**: Runs linting and reads `.lint/report.json`.
-3.  **Autonomous Fixing**: 
-    - Applies `Safe` fixes via `.lint/apply_fixes.sh`.
-    - Manually resolves complex issues (e.g., uninitialized variables) based on JSON diagnostics.
-4.  **Verification**: Re-runs linting to verify the fix.
+## 🤖 Reasoning Protocol
+The agent follows the **[protocol.md](references/protocol.md)**:
+1. **Analyze**: Read JSON diagnostics.
+2. **Environment Sync**: Auto-discover `compile_commands.json`.
+3. **Fix**: Apply safe fixes automatically; manually resolve complex bugs.
+4. **Verify**: Re-run to confirm resolution.
 
 ---
 
-## 📦 Outputs
-
-- `lint_report.md`: Human-readable executive summary (Root).
-- `.lint/report.json`: Structured diagnostic data for AI Agents (Build Dir).
-- `.lint/report.sarif`: Industry-standard format for GitHub Actions/IDEs (Build Dir).
-- `.lint/fixes/*.yaml`: Exported clang-tidy replacements (Build Dir).
+## 📦 Outputs (For Agent & Human)
+- `lint_report.md`: Human executive summary.
+- `.lint/report.json`: AI-consumable structured data.
+- `.lint/report.sarif`: Industry-standard integration.
 
 ---
 
