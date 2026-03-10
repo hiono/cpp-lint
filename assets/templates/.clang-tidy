@@ -1,0 +1,29 @@
+---
+Checks: >
+  -*,
+  bugprone-*,
+  cppcoreguidelines-*,
+  modernize-*,
+  performance-*,
+  readability-*,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  -cppcoreguidelines-pro-type-vararg,
+  -modernize-use-trailing-return-type,
+  -readability-braces-around-statements,
+  -readability-magic-numbers,
+  -readability-named-parameter,
+  -readability-convert-member-functions-to-static,
+  -bugprone-easily-swappable-parameters,
+  -performance-no-int-to-ptr,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-avoid-magic-numbers
+
+WarningsAsErrors: ""
+HeaderFilterRegex: '.*'
+AnalyzeTemporaryDtors: false
+FormatStyle: file
+CheckOptions:
+  - key:             readability-function-cognitive-complexity.Threshold
+    value:           '25'
+...
