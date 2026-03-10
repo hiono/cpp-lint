@@ -1,0 +1,6 @@
+.ruff_cache/
+__pycache__/
+*.skill
+.lint/
+lint_report.md
+node_modules/
