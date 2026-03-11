@@ -52,4 +52,17 @@ jq '.issues[] | select(.file == "src/main.cpp")' <machine_report>
 jq '.fixes | to_entries | .[:5]' <machine_report>
 ```
 
+## 6. Advanced jq Triage Patterns
 
+Use these patterns to isolate specific issues:
+
+```bash
+# List files with more than 10 warnings
+jq '.issues | group_by(.file) | .[] | select(length > 10) | {file: .[0].file, count: length}' <machine_report>
+
+# Show only 'critical' checks (e.g., VirtualCall)
+jq '.issues[] | select(.check | contains("VirtualCall"))' <machine_report>
+
+# Extract fixes for a specific file
+jq '.fixes | with_entries(select(.key | contains("src__impl__operations.cpp")))' <machine_report>
+```
