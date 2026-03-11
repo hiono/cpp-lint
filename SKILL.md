@@ -1,41 +1,15 @@
----
-name: cpp-lint
-description: |
-  High-performance, agent-optimized C++ linting (format -> tidy).
-  Use for: (1) Running static analysis, (2) Fixing code style/bugs via --fix,
-  (3) Generating SARIF/JSON reports, (4) Replacing manual build system fix
-  targets.
-  Targets changed or all files surgically using git integration.
-compatibility: opencode
----
+# C++ Lint Skill
 
-# cpp-lint
+Expert C++ code quality automation for AI Agents.
 
-Surgical C/C++ linting pipeline designed for AI Agents.
+## Capabilities
 
-## Quick Start
+- High-performance linting via \`cpp-lint\`.
+- Surgical noise filtering using Git-Native logic.
+- Automated formatting and safe fixes.
 
-```bash
-# Surgical lint (staged + unstaged + untracked)
-cpp-lint changed
+## Instructions
 
-# Fast automatic fix (Replaces standard lint-fix targets)
-cpp-lint changed --fix
-
-# Full project audit
-cpp-lint all
-```
-
-## Advanced Usage
-
-- **Reasoning Protocol**: See [protocol.md](references/protocol.md) for how to
-  fix issues autonomously.
-- **Deployment**: See [README.md](README.md) for global/local setup and
-  tool integration.
-- **Templates**: Standard configs available in `assets/templates/`.
-
-## Outputs
-
-- `lint_report.md`: Human summary (Root).
-- `.lint/report.json`: Machine data (Build Dir).
-- `.lint/report.sarif`: Industry standard (Build Dir).
+1. **Analysis**: Run \`./scripts/cpp-lint changed\` to see issues.
+2. **Triage**: Use \`jq\` on \`.lint/lint_report.json\`.
+3. **Execution**: Run \`./scripts/cpp-lint --fix\` after approval.
