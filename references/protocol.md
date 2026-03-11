@@ -70,4 +70,5 @@ jq '.issues[] | select(.check | contains("VirtualCall"))' <machine_report>
 jq '.fixes | with_entries(select(.key | contains("src__impl__operations.cpp")))' \\
   <machine_report>
   <machine_report>
+  <machine_report>
 ```
