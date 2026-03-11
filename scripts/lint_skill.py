@@ -14,11 +14,9 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 CPP_EXTS = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx", ".ipp"}
-
-# Global lock for thread-safe logging
 log_lock = threading.Lock()
 
 
@@ -33,13 +31,8 @@ class Issue:
     message: str
 
 
-SAFE_FIX_ALLOW_PREFIX = (
-    "readability-",
-    "modernize-",
-)
-SAFE_FIX_DENY_EXACT = {
-    "modernize-use-trailing-return-type",
-}
+SAFE_FIX_ALLOW_PREFIX = ("readability-", "modernize-")
+SAFE_FIX_DENY_EXACT = {"modernize-use-trailing-return-type"}
 
 TIDY_RE = re.compile(
     r"^(?P<file>.*?):(?P<line>\d+):(?P<col>\d+):\s+"
@@ -48,7 +41,7 @@ TIDY_RE = re.compile(
 )
 
 
-def sha256(path: Path) -> str:
+def get_sha256(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as f:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
@@ -63,19 +56,24 @@ def append_log(log_path: Path, text: str) -> None:
             f.write(text)
 
 
-def run(cmd: List[str], cwd: Path, log_path: Path) -> int:
+def run_command(cmd: List[str], cwd: Path, log_path: Path) -> int:
     p = subprocess.run(
-        cmd,
-        cwd=str(cwd),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
+        cmd, cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
     )
     append_log(log_path, f"\n\n## CMD: {' '.join(cmd)}\n{p.stdout}")
     return p.returncode
 
 
+def get_project_relative_path(file_path: str, root: Path) -> str:
+    try:
+        abs_file = Path(file_path).resolve()
+        return str(abs_file.relative_to(root.resolve()))
+    except (ValueError, RuntimeError):
+        return file_path
+
+
 def pick_latest_compile_commands(project_root: Path) -> Optional[Path]:
+    """Heuristically discovers the most relevant compile_commands.json."""
     candidates: List[Path] = []
     try:
         out = subprocess.check_output(
@@ -98,11 +96,12 @@ def pick_latest_compile_commands(project_root: Path) -> Optional[Path]:
         pass
 
     if not candidates:
-        common_dirs = {"build", "out", "target", "bin", "Debug", "Release"}
+        noise_dirs = {"build", "out", "target", "bin", "Debug", "Release"}
         for p in project_root.rglob("compile_commands.json"):
-            if not any(part.startswith(".") for part in p.parts):
-                if any(d in str(p) for d in common_dirs):
-                    candidates.append(p)
+            if not any(part.startswith(".") for part in p.parts) and any(
+                d in str(p) for d in noise_dirs
+            ):
+                candidates.append(p)
 
     if not candidates:
         return None
@@ -113,15 +112,14 @@ def pick_latest_compile_commands(project_root: Path) -> Optional[Path]:
 
 def sync_compile_commands(project_root: Path) -> Tuple[bool, str, Optional[Path]]:
     src = pick_latest_compile_commands(project_root)
-    if src is None:
-        msg = (
-            "ERROR: compile_commands.json not found.\n"
-            "Run: cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON . OR cmake --preset dev"
-        )
+    if not src:
+        msg = "ERROR: compile_commands.json not found.\nRun: cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON . OR cmake --preset dev"
         return False, msg, None
+
     dst = project_root / "compile_commands.json"
     if src.resolve() == dst.resolve():
         return True, f"Latest DB already at root: {dst}", src.parent
+
     shutil.copy2(src, dst)
     return True, f"Synced latest DB: {src} -> {dst}", src.parent
 
@@ -130,47 +128,50 @@ def is_source_file(p: Path) -> bool:
     return p.suffix.lower() in CPP_EXTS
 
 
-def git_list_files_all(project_root: Path) -> List[Path]:
-    files: List[Path] = []
-    try:
-        out = subprocess.check_output(
-            ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
-            cwd=str(project_root),
-            stderr=subprocess.DEVNULL,
-            text=True,
-        )
-        files = [
-            project_root / line.strip() for line in out.splitlines() if line.strip()
-        ]
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        pass
+def get_git_files(project_root: Path, scope: str) -> List[Path]:
+    if scope == "all":
+        try:
+            out = subprocess.check_output(
+                ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+                cwd=str(project_root),
+                stderr=subprocess.DEVNULL,
+                text=True,
+            )
+            files = [
+                project_root / line.strip() for line in out.splitlines() if line.strip()
+            ]
+            return sorted([p for p in files if p.is_file() and is_source_file(p)])
+        except Exception:
+            return sorted(
+                [
+                    p
+                    for p in project_root.rglob("*")
+                    if p.is_file()
+                    and is_source_file(p)
+                    and not any(part.startswith(".") for part in p.parts)
+                ]
+            )
 
-    if not files:
-        for ext in CPP_EXTS:
-            for p in project_root.rglob(f"*{ext}"):
-                if p.is_file() and not any(part.startswith(".") for part in p.parts):
-                    files.append(p)
-
-    return sorted(list(set(p for p in files if p.is_file() and is_source_file(p))))
-
-
-def git_list_files_changed(project_root: Path) -> List[Path]:
-    def _run_git(args: List[str]) -> List[str]:
+    def run_git(args: List[str]) -> List[str]:
         try:
             out = subprocess.check_output(
                 ["git"] + args, cwd=str(project_root), text=True
             )
             return [x.strip() for x in out.splitlines() if x.strip()]
-        except subprocess.CalledProcessError:
+        except Exception:
             return []
 
-    staged = _run_git(["diff", "--name-only", "--cached"])
-    unstaged = _run_git(["diff", "--name-only"])
-    untracked = _run_git(["ls-files", "--others", "--exclude-standard"])
-
+    staged, unstaged, untracked = (
+        run_git(["diff", "--name-only", "--cached"]),
+        run_git(["diff", "--name-only"]),
+        run_git(["ls-files", "--others", "--exclude-standard"]),
+    )
     names = sorted(set(staged + unstaged + untracked))
-    files = [project_root / n for n in names]
-    return [p for p in files if p.exists() and is_source_file(p)]
+    return [
+        project_root / n
+        for n in names
+        if (project_root / n).exists() and is_source_file(project_root / n)
+    ]
 
 
 def ensure_lint_dirs(base_path: Path) -> Tuple[Path, Path]:
@@ -181,19 +182,12 @@ def ensure_lint_dirs(base_path: Path) -> Tuple[Path, Path]:
     return base, fixes
 
 
-def safe_yaml_name(project_root: Path, file_path: Path) -> str:
-    rel = file_path.relative_to(project_root)
-    return str(rel).replace("/", "__") + ".yaml"
-
-
 def parse_tidy_log(log_path: Path) -> List[Issue]:
-    issues: List[Issue] = []
+    issues = []
     if not log_path.exists():
         return issues
-
-    for raw in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
-        line = raw.strip("\n")
-        m = TIDY_RE.match(line)
+    for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        m = TIDY_RE.match(line.strip())
         if m:
             issues.append(
                 Issue(
@@ -209,13 +203,16 @@ def parse_tidy_log(log_path: Path) -> List[Issue]:
     return issues
 
 
-def extract_diagnostic_names_from_yaml(yaml_path: Path) -> List[str]:
-    names: List[str] = []
+def get_safe_yaml_name(project_root: Path, file_path: Path) -> str:
+    return str(file_path.relative_to(project_root)).replace(os.sep, "__") + ".yaml"
+
+
+def extract_diagnostic_names(yaml_path: Path) -> List[str]:
+    names = []
     if not yaml_path.exists():
         return names
     for line in yaml_path.read_text(encoding="utf-8", errors="replace").splitlines():
-        line = line.strip()
-        if line.startswith("DiagnosticName:"):
+        if line.strip().startswith("DiagnosticName:"):
             v = line.split(":", 1)[1].strip().strip('"')
             if v:
                 names.append(v)
@@ -223,46 +220,40 @@ def extract_diagnostic_names_from_yaml(yaml_path: Path) -> List[str]:
 
 
 def is_safe_diagnostic(name: str) -> bool:
-    if name in SAFE_FIX_DENY_EXACT:
-        return False
-    return any(name.startswith(p) for p in SAFE_FIX_ALLOW_PREFIX)
+    return (
+        any(name.startswith(p) for p in SAFE_FIX_ALLOW_PREFIX)
+        and name not in SAFE_FIX_DENY_EXACT
+    )
 
 
 def write_apply_script(lint_base: Path) -> Path:
     path = lint_base / "apply_fixes.sh"
-    content = (
-        "#!/usr/bin/env bash\n"
-        "set -euo pipefail\n"
-        'FIXDIR="$(dirname "${BASH_SOURCE[0]}")/fixes"\n\n'
-        'for y in "$FIXDIR"/*.yaml; do\n'
-        '  [ -e "$y" ] || continue\n'
-        '  clang-apply-replacements "$y"\n'
-        "done\n"
-    )
+    content = '#!/usr/bin/env bash\nset -euo pipefail\nFIXDIR="$(dirname "${BASH_SOURCE[0]}")/fixes"\nfor y in "$FIXDIR"/*.yaml; do\n  [ -e "$y" ] || continue\n  clang-apply-replacements "$y"\ndone\n'
     path.write_text(content, encoding="utf-8")
     os.chmod(path, 0o755)
     return path
 
 
-def to_markdown(
+def generate_markdown(
     issues: List[Issue],
     project_root: Path,
     scope: str,
-    formatted_files: List[Path],
+    formatted_files: Set[Path],
     ccdb_msg: str,
     yaml_index: Dict[str, List[str]],
     safe_yaml_files: List[str],
 ) -> str:
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    has_format_cfg = (project_root / ".clang-format").exists()
-    has_tidy_cfg = (project_root / ".clang-tidy").exists()
-
-    sev_counts: Dict[str, int] = {}
-    for it in issues:
-        sev_counts[it.severity] = sev_counts.get(it.severity, 0) + 1
+    has_format_cfg, has_tidy_cfg = (
+        (project_root / ".clang-format").exists(),
+        (project_root / ".clang-tidy").exists(),
+    )
+    sev_counts = {
+        s: sum(1 for i in issues if i.severity == s)
+        for s in ["error", "warning", "note"]
+    }
 
     lines = [f"# Lint Report ({now})", f"- Scope: `{scope}`", f"- DB: {ccdb_msg}", ""]
-
     if not has_format_cfg or not has_tidy_cfg:
         lines.append("### ⚠️ Config Missing")
         if not has_format_cfg:
@@ -275,112 +266,101 @@ def to_markdown(
             )
         lines.append("")
 
-    lines.append(f"## Format: {len(formatted_files)} files updated")
-    lines.append(
-        f"## Tidy: {sev_counts.get('error', 0)} errors, {sev_counts.get('warning', 0)} warnings"
+    lines.extend(
+        [
+            f"## Summary: {len(formatted_files)} files formatted/fixed",
+            f"## Tidy: {sev_counts['error']} errors, {sev_counts['warning']} warnings",
+            "",
+            "### 📦 Detailed Artifacts",
+            "- Structured data (`report.json`, `report.sarif`) and manual fixes (`fixes/*.yaml`) are stored in the build directory's `.lint/` folder.",
+            "",
+        ]
     )
-    lines.append("")
-
-    lines.append("### 📦 Detailed Artifacts")
-    lines.append(
-        "- Structured data (`report.json`, `report.sarif`) and manual fixes (`fixes/*.yaml`) are stored in the build directory's `.lint/` folder."
-    )
-    lines.append("")
-
     if yaml_index:
-        lines.append(
-            f"### Fixes: {len(yaml_index)} files (Safe: {len(safe_yaml_files)})"
+        lines.extend(
+            [
+                f"### Fixes: {len(yaml_index)} files (Safe: {len(safe_yaml_files)})",
+                "- Manual apply: Look for `apply_fixes.sh` inside the `.lint` directory in your build folder.",
+                "",
+            ]
         )
-        lines.append(
-            "- Manual apply: Look for `apply_fixes.sh` inside the `.lint` directory in your build folder."
-        )
-        lines.append("")
 
     if issues:
-        lines.append("## Issues")
-        lines.append("| Sev | File | Line | Check | Message |")
-        lines.append("|---|---|---:|---|---|")
-
-        def relpath(s: str) -> str:
-            try:
-                return str(Path(s).resolve().relative_to(project_root.resolve()))
-            except Exception:
-                return s
-
-        issues_sorted = sorted(
+        lines.extend(
+            [
+                "## Issues",
+                "| Sev | File | Line | Check | Message |",
+                "|---|---|---:|---|---|",
+            ]
+        )
+        for it in sorted(
             issues,
             key=lambda x: (
                 {"error": 0, "warning": 1, "note": 2}.get(x.severity, 9),
-                relpath(x.file),
+                get_project_relative_path(x.file, project_root),
                 x.line,
             ),
-        )
-        for it in issues_sorted:
-            if it.severity == "note":
-                continue
-            lines.append(
-                f"| {it.severity} | `{relpath(it.file)}` | {it.line} | {it.check} | {it.message} |"
-            )
+        ):
+            if it.severity != "note":
+                lines.append(
+                    f"| {it.severity} | `{get_project_relative_path(it.file, project_root)}` | {it.line} | {it.check} | {it.message} |"
+                )
     return "\n".join(lines)
 
 
-def to_json(
+def generate_json(
     issues: List[Issue],
     project_root: Path,
     scope: str,
-    formatted_files: List[Path],
+    formatted_files: Set[Path],
     ccdb_msg: str,
     yaml_index: Dict[str, List[str]],
 ) -> str:
-    res = {
-        "metadata": {
-            "generated_at": datetime.now().isoformat(),
-            "scope": scope,
-            "config": {
-                "has_clang_format": (project_root / ".clang-format").exists(),
-                "has_clang_tidy": (project_root / ".clang-tidy").exists(),
+    return json.dumps(
+        {
+            "metadata": {
+                "generated_at": datetime.now().isoformat(),
+                "scope": scope,
+                "project_root": str(project_root.resolve()),
+                "config": {
+                    "has_clang_format": (project_root / ".clang-format").exists(),
+                    "has_clang_tidy": (project_root / ".clang-tidy").exists(),
+                },
             },
+            "summary": {
+                "formatted_count": len(formatted_files),
+                "issues": {
+                    s: sum(1 for i in issues if i.severity == s)
+                    for s in ["error", "warning", "note"]
+                },
+            },
+            "issues": [asdict(i) for i in issues],
+            "fixes": yaml_index,
         },
-        "summary": {"formatted_count": len(formatted_files), "issues": {}},
-        "issues": [asdict(i) for i in issues],
-        "fixes": yaml_index,
-    }
-    for it in issues:
-        res["summary"]["issues"][it.severity] = (
-            res["summary"]["issues"].get(it.severity, 0) + 1
-        )
-    return json.dumps(res, indent=2, ensure_ascii=False)
+        indent=2,
+        ensure_ascii=False,
+    )
 
 
-def to_sarif(issues: List[Issue], project_root: Path) -> str:
-    def relpath(s: str) -> str:
-        try:
-            return str(Path(s).resolve().relative_to(project_root.resolve()))
-        except Exception:
-            return s
-
-    results = []
-    for it in issues:
-        level = "warning"
-        if it.severity == "error":
-            level = "error"
-        elif it.severity == "note":
-            level = "note"
-        results.append(
-            {
-                "ruleId": it.check,
-                "level": level,
-                "message": {"text": it.message},
-                "locations": [
-                    {
-                        "physicalLocation": {
-                            "artifactLocation": {"uri": relpath(it.file)},
-                            "region": {"startLine": it.line, "startColumn": it.col},
-                        }
+def generate_sarif(issues: List[Issue], project_root: Path) -> str:
+    results = [
+        {
+            "ruleId": i.check,
+            "level": {"error": "error", "note": "note"}.get(i.severity, "warning"),
+            "message": {"text": i.message},
+            "locations": [
+                {
+                    "physicalLocation": {
+                        "artifactLocation": {
+                            "uri": get_project_relative_path(i.file, project_root)
+                        },
+                        "region": {"startLine": i.line, "startColumn": i.col},
                     }
-                ],
-            }
-        )
+                }
+            ],
+        }
+        for i in issues
+    ]
     return json.dumps(
         {
             "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
@@ -405,19 +385,18 @@ def main() -> int:
     args = ap.parse_args()
 
     project_root = Path(args.project_root).resolve()
-    log_path = Path(args.log).resolve()
-    report_path = (project_root / args.report).resolve()
-
+    os.chdir(str(project_root))
+    log_path, report_path = (
+        Path(args.log).resolve(),
+        (project_root / args.report).resolve(),
+    )
     if log_path.exists():
         log_path.unlink()
 
-    ccdb_msg = "skipped"
-    build_dir = project_root
+    ccdb_msg, build_dir = "skipped", project_root
     if not args.no_sync_ccdb:
-        ok, msg, found_build_dir = sync_compile_commands(project_root)
-        ccdb_msg = msg
-        if found_build_dir:
-            build_dir = found_build_dir
+        ok, msg, found_dir = sync_compile_commands(project_root)
+        ccdb_msg, build_dir = msg, found_dir or project_root
         append_log(log_path, f"## DB sync: {msg}\n")
         if not ok:
             report_path.write_text(f"# FAILED\n\n{msg}\n")
@@ -425,49 +404,42 @@ def main() -> int:
             return 1
 
     lint_base, fixes_dir = ensure_lint_dirs(build_dir)
-    files = (
-        git_list_files_all(project_root)
-        if args.scope == "all"
-        else git_list_files_changed(project_root)
-    )
+    files = get_git_files(project_root, args.scope)
     if not files:
         report_path.write_text("# No target files\n")
         print(str(report_path))
         return 0
 
-    # (C1) Format
-    formatted_files = []
+    modified_files: Set[Path] = set()
+
+    def do_format(p):
+        b = get_sha256(p)
+        run_command(["clang-format", "-i", "-style=file"], project_root, log_path)
+        return p if b != get_sha256(p) else None
+
     if not args.skip_format:
-        fmt_cmd = ["clang-format", "-i", "-style=file"]
-
-        def do_format(p):
-            b = sha256(p)
-            run(fmt_cmd + [str(p)], project_root, log_path)
-            return p if b != sha256(p) else None
-
         with ThreadPoolExecutor(max_workers=args.jobs) as ex:
-            formatted_files = [r for r in ex.map(do_format, files) if r]
+            modified_files.update(r for r in ex.map(do_format, files) if r)
 
-    # (C2) Tidy
     tidy_cmd = ["clang-tidy", "-p", str(project_root)]
     if args.fix_errors:
         tidy_cmd.append("-fix-errors")
     elif args.fix:
         tidy_cmd.append("-fix")
 
-    yaml_index = {}
     for old in fixes_dir.glob("*.yaml"):
         old.unlink()
 
     def do_tidy(p):
-        y = fixes_dir / safe_yaml_name(project_root, p)
-        run(tidy_cmd + [str(p), f"-export-fixes={y}"], project_root, log_path)
+        y = fixes_dir / get_safe_yaml_name(project_root, p)
+        run_command(tidy_cmd + [str(p), f"-export-fixes={y}"], project_root, log_path)
         return (
-            (str(y.relative_to(project_root)), extract_diagnostic_names_from_yaml(y))
+            (str(y.relative_to(project_root)), extract_diagnostic_names(y))
             if y.exists()
             else ("", [])
         )
 
+    yaml_index = {}
     with ThreadPoolExecutor(max_workers=args.jobs) as ex:
         for r, d in ex.map(do_tidy, files):
             if r:
@@ -481,41 +453,55 @@ def main() -> int:
                 check=True,
                 capture_output=True,
             )
-            # Re-format after fixes to clean up the code
             if not args.skip_format:
-                append_log(log_path, "\n## Re-formatting after fixes\n")
-                fmt_cmd = ["clang-format", "-i", "-style=file"]
                 with ThreadPoolExecutor(max_workers=args.jobs) as ex:
-                    list(
-                        ex.map(
-                            lambda p: run(fmt_cmd + [str(p)], project_root, log_path),
-                            files,
-                        )
-                    )
-        except Exception:
-            pass
+                    modified_files.update(r for r in ex.map(do_format, files) if r)
+        except Exception as e:
+            append_log(log_path, f"ERROR applying fixes: {e}\n")
 
-    issues = parse_tidy_log(log_path)
+    def is_project_source(f: str) -> bool:
+        try:
+            rel = Path(os.path.abspath(f)).relative_to(project_root)
+            return not any(
+                p
+                in {
+                    "build",
+                    "out",
+                    "target",
+                    "bin",
+                    "vcpkg",
+                    "_deps",
+                    "external",
+                    "vendor",
+                }
+                for p in rel.parts
+            )
+        except ValueError:
+            return False
+
+    issues = [i for i in parse_tidy_log(log_path) if is_project_source(i.file)]
     safe_yaml = [
         r for r, d in yaml_index.items() if any(is_safe_diagnostic(x) for x in d)
     ]
 
-    md = to_markdown(
-        issues,
-        project_root,
-        args.scope,
-        formatted_files,
-        ccdb_msg,
-        yaml_index,
-        safe_yaml,
+    report_path.write_text(
+        generate_markdown(
+            issues,
+            project_root,
+            args.scope,
+            modified_files,
+            ccdb_msg,
+            yaml_index,
+            safe_yaml,
+        ),
+        encoding="utf-8",
     )
-    if args.skip_format:
-        md = md.replace("## Format", "## Format (Skipped)")
-    report_path.write_text(md, encoding="utf-8")
     (lint_base / "report.json").write_text(
-        to_json(issues, project_root, args.scope, formatted_files, ccdb_msg, yaml_index)
+        generate_json(
+            issues, project_root, args.scope, modified_files, ccdb_msg, yaml_index
+        )
     )
-    (lint_base / "report.sarif").write_text(to_sarif(issues, project_root))
+    (lint_base / "report.sarif").write_text(generate_sarif(issues, project_root))
 
     print(str(report_path))
     return 0

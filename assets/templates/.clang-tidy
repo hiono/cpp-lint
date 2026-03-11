@@ -21,9 +21,7 @@ Checks: >
 
 WarningsAsErrors: ""
 HeaderFilterRegex: '.*'
-AnalyzeTemporaryDtors: false
 FormatStyle: file
 CheckOptions:
-  - key:             readability-function-cognitive-complexity.Threshold
-    value:           '25'
+  readability-function-cognitive-complexity.Threshold: '25'
 ...
