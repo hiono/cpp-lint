@@ -182,6 +182,11 @@ def ensure_lint_dirs(base_path: Path) -> Tuple[Path, Path]:
     return base, fixes
 
 
+def safe_yaml_name(project_root: Path, file_path: Path) -> str:
+    rel = file_path.relative_to(project_root)
+    return str(rel).replace("/", "__") + ".yaml"
+
+
 def parse_tidy_log(log_path: Path) -> List[Issue]:
     issues = []
     if not log_path.exists():
@@ -272,7 +277,7 @@ def generate_markdown(
             f"## Tidy: {sev_counts['error']} errors, {sev_counts['warning']} warnings",
             "",
             "### 📦 Detailed Artifacts",
-            "- Structured data (`report.json`, `report.sarif`) and manual fixes (`fixes/*.yaml`) are stored in the build directory's `.lint/` folder.",
+            "- Structured data (`lint_report.json`, `report.sarif`) and manual fixes (`fixes/*.yaml`) are stored in the build directory's `.lint/` folder.",
             "",
         ]
     )
@@ -371,6 +376,30 @@ def generate_sarif(issues: List[Issue], project_root: Path) -> str:
     )
 
 
+def print_summary(
+    overall_success: bool,
+    issues: List[Issue],
+    modified_files: Set[Path],
+    report_path: Path,
+    lint_base: Path,
+):
+    """Prints a token-efficient JSON summary to stdout."""
+    summary = {
+        "quick_ref": {
+            "success": overall_success,
+            "formatted_count": len(modified_files),
+            "errors": sum(1 for i in issues if i.severity == "error"),
+            "warnings": sum(1 for i in issues if i.severity == "warning"),
+        },
+        "artifacts": {
+            "human_report": str(report_path.resolve()),
+            "machine_report": str((lint_base / "lint_report.json").resolve()),
+            "sarif_report": str((lint_base / "report.sarif").resolve()),
+        },
+    }
+    print(json.dumps(summary, ensure_ascii=False))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--project-root", default=".")
@@ -400,14 +429,14 @@ def main() -> int:
         append_log(log_path, f"## DB sync: {msg}\n")
         if not ok:
             report_path.write_text(f"# FAILED\n\n{msg}\n")
-            print(str(report_path))
+            print_summary(False, [], set(), report_path, build_dir)
             return 1
 
     lint_base, fixes_dir = ensure_lint_dirs(build_dir)
     files = get_git_files(project_root, args.scope)
     if not files:
         report_path.write_text("# No target files\n")
-        print(str(report_path))
+        print_summary(True, [], set(), report_path, lint_base)
         return 0
 
     modified_files: Set[Path] = set()
@@ -427,6 +456,7 @@ def main() -> int:
     elif args.fix:
         tidy_cmd.append("-fix")
 
+    yaml_index = {}
     for old in fixes_dir.glob("*.yaml"):
         old.unlink()
 
@@ -496,27 +526,19 @@ def main() -> int:
         ),
         encoding="utf-8",
     )
-    (lint_base / "report.json").write_text(
+
+    rep_json = lint_base / "lint_report.json"
+    rep_json.write_text(
         generate_json(
             issues, project_root, args.scope, modified_files, ccdb_msg, yaml_index
-        )
+        ),
+        encoding="utf-8",
     )
-    (lint_base / "report.sarif").write_text(generate_sarif(issues, project_root))
+    (lint_base / "report.sarif").write_text(
+        generate_sarif(issues, project_root), encoding="utf-8"
+    )
 
-    # Final concise output for Token efficiency
-    summary = {
-        "quick_ref": {
-            "formatted_count": len(modified_files),
-            "errors": sum(1 for i in issues if i.severity == "error"),
-            "warnings": sum(1 for i in issues if i.severity == "warning"),
-        },
-        "artifacts": {
-            "human_report": str(report_path),
-            "machine_report": str((lint_base / "report.json").resolve()),
-            "sarif_report": str((lint_base / "report.sarif").resolve()),
-        },
-    }
-    print(json.dumps(summary, ensure_ascii=False))
+    print_summary(True, issues, modified_files, report_path, lint_base)
     return 0
 
 

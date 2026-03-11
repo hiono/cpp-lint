@@ -15,6 +15,7 @@ When using `cpp-lint`, follow this logic to maximize success:
 ## 2. Advice Phase (Human-in-the-loop)
 
 Before applying fixes, the agent should provide an **Advice Summary**:
+
 - **Risk Assessment**: Identify `Safe` vs. `Manual Review` items.
 - **Impact**: Estimate how many files/lines will change.
 - **Recommendation**: Propose a specific action (e.g., "Apply safe fixes only").
@@ -43,7 +44,8 @@ entire file:
 jq '.summary.issues' <machine_report>
 
 # List unique files with warnings
-jq '.issues[] | select(.severity == "warning") | .file' <machine_report> | sort | uniq
+jq '.issues[] | select(.severity == "warning") | .file' <machine_report> \
+  | sort | uniq
 
 # Get all issues for a specific file
 jq '.issues[] | select(.file == "src/main.cpp")' <machine_report>
@@ -58,11 +60,14 @@ Use these patterns to isolate specific issues:
 
 ```bash
 # List files with more than 10 warnings
-jq '.issues | group_by(.file) | .[] | select(length > 10) | {file: .[0].file, count: length}' <machine_report>
+jq '.issues | group_by(.file) | .[] | select(length > 10) | \
+  {file: .[0].file, count: length}' <machine_report>
 
 # Show only 'critical' checks (e.g., VirtualCall)
 jq '.issues[] | select(.check | contains("VirtualCall"))' <machine_report>
 
 # Extract fixes for a specific file
-jq '.fixes | with_entries(select(.key | contains("src__impl__operations.cpp")))' <machine_report>
+jq '.fixes | with_entries(select(.key | contains("src__impl__operations.cpp")))' \\
+  <machine_report>
+  <machine_report>
 ```
