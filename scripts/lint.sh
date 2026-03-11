@@ -5,7 +5,8 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 SCOPE="${1:-changed}"
 shift || true
 
-python3 "$SCRIPT_DIR/lint_skill.py" \
+# Use uv run to handle dependencies automatically via PEP 723
+uv run "$SCRIPT_DIR/lint_skill.py" \
 	--project-root "$ROOT" \
 	--scope "$SCOPE" \
 	"$@"
