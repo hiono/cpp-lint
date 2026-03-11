@@ -53,8 +53,8 @@ git submodule add https://github.com/hiono/cpp-lint .agents/skills/cpp-lint
 When an agent is equipped with this skill, it can:
 
 1. **`cpp-lint changed`**: Surgically scan only current modifications.
-2. **`cpp-lint --fix`**: Automatically apply C++ best practices (Replaces CMake
-   `tidy-fix`).
+2. **`cpp-lint --fix`**: Automatically apply C++ best practices (Replaces
+   standard build system fix targets).
 3. **`cpp-lint all`**: Perform a full repository audit in seconds
    (Parallelized).
 
@@ -66,7 +66,8 @@ The agent follows the **[protocol.md](references/protocol.md)**:
 
 1. **Analyze**: Read JSON diagnostics.
 2. **Environment Sync**: Auto-discover `compile_commands.json`.
-3. **Fix**: Apply safe fixes automatically; manually resolve complex bugs.
+3. **Fix**: Apply safe fixes automatically (high-performance replacement for
+   `clang-tidy -fix` targets); manually resolve complex bugs.
 4. **Verify**: Re-run to confirm resolution.
 
 ---

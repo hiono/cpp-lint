@@ -3,7 +3,8 @@ name: cpp-lint
 description: |
   High-performance, agent-optimized C++ linting (format -> tidy).
   Use for: (1) Running static analysis, (2) Fixing code style/bugs via --fix,
-  (3) Generating SARIF/JSON reports, (4) Replacing CMake tidy-fix targets.
+  (3) Generating SARIF/JSON reports, (4) Replacing manual build system fix
+  targets.
   Targets changed or all files surgically using git integration.
 compatibility: opencode
 ---
@@ -18,7 +19,7 @@ Surgical C/C++ linting pipeline designed for AI Agents.
 # Surgical lint (staged + unstaged + untracked)
 cpp-lint changed
 
-# Fast automatic fix (Replaces CMake tidy-fix)
+# Fast automatic fix (Replaces standard lint-fix targets)
 cpp-lint changed --fix
 
 # Full project audit

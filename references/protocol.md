@@ -13,7 +13,7 @@ When using `cpp-lint`, follow this logic to maximize success:
 
 ## 2. Autonomous Action
 
-- **Fast Fixes**: Prefer `cpp-lint --fix` over CMake targets.
+- **Fast Fixes**: Prefer `cpp-lint --fix` over manual build system fix targets.
 - **Auto-Formatting**: `cpp-lint` automatically runs `clang-format` after
   `--fix`. You don't need to format manually.
 - **Missing Config**: If `.clang-format/tidy` are missing, copy from
