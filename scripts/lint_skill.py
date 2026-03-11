@@ -79,12 +79,21 @@ def pick_latest_compile_commands(project_root: Path) -> Optional[Path]:
     candidates: List[Path] = []
     try:
         out = subprocess.check_output(
-            ["git", "ls-files", "--cached", "--others", "--exclude-standard", "*compile_commands.json"],
+            [
+                "git",
+                "ls-files",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+                "*compile_commands.json",
+            ],
             cwd=str(project_root),
             stderr=subprocess.DEVNULL,
             text=True,
         )
-        candidates = [project_root / line.strip() for line in out.splitlines() if line.strip()]
+        candidates = [
+            project_root / line.strip() for line in out.splitlines() if line.strip()
+        ]
     except Exception:
         pass
 
@@ -130,7 +139,9 @@ def git_list_files_all(project_root: Path) -> List[Path]:
             stderr=subprocess.DEVNULL,
             text=True,
         )
-        files = [project_root / line.strip() for line in out.splitlines() if line.strip()]
+        files = [
+            project_root / line.strip() for line in out.splitlines() if line.strip()
+        ]
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass
 
@@ -146,7 +157,9 @@ def git_list_files_all(project_root: Path) -> List[Path]:
 def git_list_files_changed(project_root: Path) -> List[Path]:
     def _run_git(args: List[str]) -> List[str]:
         try:
-            out = subprocess.check_output(["git"] + args, cwd=str(project_root), text=True)
+            out = subprocess.check_output(
+                ["git"] + args, cwd=str(project_root), text=True
+            )
             return [x.strip() for x in out.splitlines() if x.strip()]
         except subprocess.CalledProcessError:
             return []
@@ -253,18 +266,34 @@ def to_markdown(
     if not has_format_cfg or not has_tidy_cfg:
         lines.append("### ⚠️ Config Missing")
         if not has_format_cfg:
-            lines.append("- `.clang-format` missing. Run `clang-format -style=llvm -dump-config > .clang-format`")
+            lines.append(
+                "- `.clang-format` missing. Run `clang-format -style=llvm -dump-config > .clang-format`"
+            )
         if not has_tidy_cfg:
-            lines.append("- `.clang-tidy` missing. Run `clang-tidy -dump-config > .clang-tidy`")
+            lines.append(
+                "- `.clang-tidy` missing. Run `clang-tidy -dump-config > .clang-tidy`"
+            )
         lines.append("")
 
     lines.append(f"## Format: {len(formatted_files)} files updated")
-    lines.append(f"## Tidy: {sev_counts.get('error', 0)} errors, {sev_counts.get('warning', 0)} warnings")
+    lines.append(
+        f"## Tidy: {sev_counts.get('error', 0)} errors, {sev_counts.get('warning', 0)} warnings"
+    )
+    lines.append("")
+
+    lines.append("### 📦 Detailed Artifacts")
+    lines.append(
+        "- Structured data (`report.json`, `report.sarif`) and manual fixes (`fixes/*.yaml`) are stored in the build directory's `.lint/` folder."
+    )
     lines.append("")
 
     if yaml_index:
-        lines.append(f"### Fixes: {len(yaml_index)} files (Safe: {len(safe_yaml_files)})")
-        lines.append("- Apply: `bash .lint/apply_fixes.sh` (Check location in build dir)")
+        lines.append(
+            f"### Fixes: {len(yaml_index)} files (Safe: {len(safe_yaml_files)})"
+        )
+        lines.append(
+            "- Manual apply: Look for `apply_fixes.sh` inside the `.lint` directory in your build folder."
+        )
         lines.append("")
 
     if issues:
@@ -280,12 +309,18 @@ def to_markdown(
 
         issues_sorted = sorted(
             issues,
-            key=lambda x: ({"error": 0, "warning": 1, "note": 2}.get(x.severity, 9), relpath(x.file), x.line),
+            key=lambda x: (
+                {"error": 0, "warning": 1, "note": 2}.get(x.severity, 9),
+                relpath(x.file),
+                x.line,
+            ),
         )
         for it in issues_sorted:
             if it.severity == "note":
                 continue
-            lines.append(f"| {it.severity} | `{relpath(it.file)}` | {it.line} | {it.check} | {it.message} |")
+            lines.append(
+                f"| {it.severity} | `{relpath(it.file)}` | {it.line} | {it.check} | {it.message} |"
+            )
     return "\n".join(lines)
 
 
@@ -311,7 +346,9 @@ def to_json(
         "fixes": yaml_index,
     }
     for it in issues:
-        res["summary"]["issues"][it.severity] = res["summary"]["issues"].get(it.severity, 0) + 1
+        res["summary"]["issues"][it.severity] = (
+            res["summary"]["issues"].get(it.severity, 0) + 1
+        )
     return json.dumps(res, indent=2, ensure_ascii=False)
 
 
@@ -388,7 +425,11 @@ def main() -> int:
             return 1
 
     lint_base, fixes_dir = ensure_lint_dirs(build_dir)
-    files = git_list_files_all(project_root) if args.scope == "all" else git_list_files_changed(project_root)
+    files = (
+        git_list_files_all(project_root)
+        if args.scope == "all"
+        else git_list_files_changed(project_root)
+    )
     if not files:
         report_path.write_text("# No target files\n")
         print(str(report_path))
@@ -421,7 +462,11 @@ def main() -> int:
     def do_tidy(p):
         y = fixes_dir / safe_yaml_name(project_root, p)
         run(tidy_cmd + [str(p), f"-export-fixes={y}"], project_root, log_path)
-        return (str(y.relative_to(project_root)), extract_diagnostic_names_from_yaml(y)) if y.exists() else ("", [])
+        return (
+            (str(y.relative_to(project_root)), extract_diagnostic_names_from_yaml(y))
+            if y.exists()
+            else ("", [])
+        )
 
     with ThreadPoolExecutor(max_workers=args.jobs) as ex:
         for r, d in ex.map(do_tidy, files):
@@ -431,24 +476,45 @@ def main() -> int:
     write_apply_script(lint_base)
     if args.fix or args.fix_errors:
         try:
-            subprocess.run(["clang-apply-replacements", str(fixes_dir)], check=True, capture_output=True)
+            subprocess.run(
+                ["clang-apply-replacements", str(fixes_dir)],
+                check=True,
+                capture_output=True,
+            )
             # Re-format after fixes to clean up the code
             if not args.skip_format:
                 append_log(log_path, "\n## Re-formatting after fixes\n")
                 fmt_cmd = ["clang-format", "-i", "-style=file"]
                 with ThreadPoolExecutor(max_workers=args.jobs) as ex:
-                    list(ex.map(lambda p: run(fmt_cmd + [str(p)], project_root, log_path), files))
+                    list(
+                        ex.map(
+                            lambda p: run(fmt_cmd + [str(p)], project_root, log_path),
+                            files,
+                        )
+                    )
         except Exception:
             pass
 
     issues = parse_tidy_log(log_path)
-    safe_yaml = [r for r, d in yaml_index.items() if any(is_safe_diagnostic(x) for x in d)]
+    safe_yaml = [
+        r for r, d in yaml_index.items() if any(is_safe_diagnostic(x) for x in d)
+    ]
 
-    md = to_markdown(issues, project_root, args.scope, formatted_files, ccdb_msg, yaml_index, safe_yaml)
+    md = to_markdown(
+        issues,
+        project_root,
+        args.scope,
+        formatted_files,
+        ccdb_msg,
+        yaml_index,
+        safe_yaml,
+    )
     if args.skip_format:
         md = md.replace("## Format", "## Format (Skipped)")
     report_path.write_text(md, encoding="utf-8")
-    (lint_base / "report.json").write_text(to_json(issues, project_root, args.scope, formatted_files, ccdb_msg, yaml_index))
+    (lint_base / "report.json").write_text(
+        to_json(issues, project_root, args.scope, formatted_files, ccdb_msg, yaml_index)
+    )
     (lint_base / "report.sarif").write_text(to_sarif(issues, project_root))
 
     print(str(report_path))

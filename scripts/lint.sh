@@ -6,9 +6,9 @@ SCOPE="${1:-changed}"
 shift || true
 
 python3 "$SCRIPT_DIR/lint_skill.py" \
-  --project-root "$ROOT" \
-  --scope "$SCOPE" \
-  "$@"
+	--project-root "$ROOT" \
+	--scope "$SCOPE" \
+	"$@"
 
 echo "report: $ROOT/lint_report.md"
 echo "log   : /tmp/lint.log"

@@ -2,15 +2,24 @@
 
 When using `cpp-lint`, follow this logic to maximize success:
 
-### 1. Analysis Phase
-- Read `.lint/report.json` (or the one in the build dir) for structured data.
-- **Errors**: Environment issues. Check `compile_commands.json` path or missing dependencies.
-- **Warnings**: Focus on `init-variables` and `modernize-*`.
+## 1. Analysis Phase
 
-### 2. Autonomous Action
-- **No Config?**: If `.clang-format` or `.clang-tidy` are missing, suggest copying from `assets/templates/` within the skill.
-- **Fast Fixes**: Prefer `cpp-lint --fix` over `cmake --build --target tidy-fix`.
-- **Safe YAML**: If diagnostics are `Safe`, use `.lint/apply_fixes.sh`.
+- **Locate Artifacts**: `cpp-lint` stores structured data (`report.json`,
+  `report.sarif`, and `fixes/*.yaml`) inside the **`.lint` directory located in
+  your Build Directory** (where `compile_commands.json` was found).
+- **Read Data**: Always parse the `report.json` in the build dir for reliable
+  diagnostic data.
+- **Priority**: Fix `error` (environment) first, then `warning`.
 
-### 3. Verification
-- **Always** re-run `cpp-lint changed` after any fix to confirm resolution and ensure no new formatting issues.
+## 2. Autonomous Action
+
+- **Fast Fixes**: Prefer `cpp-lint --fix` over CMake targets.
+- **Auto-Formatting**: `cpp-lint` automatically runs `clang-format` after
+  `--fix`. You don't need to format manually.
+- **Missing Config**: If `.clang-format/tidy` are missing, copy from
+  `assets/templates/` within the skill.
+
+## 3. Verification
+
+- **Re-run**: Always run `cpp-lint changed` after any fix to confirm
+  resolution.
