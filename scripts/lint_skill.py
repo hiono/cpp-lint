@@ -432,6 +432,12 @@ def main() -> int:
     if args.fix or args.fix_errors:
         try:
             subprocess.run(["clang-apply-replacements", str(fixes_dir)], check=True, capture_output=True)
+            # Re-format after fixes to clean up the code
+            if not args.skip_format:
+                append_log(log_path, "\n## Re-formatting after fixes\n")
+                fmt_cmd = ["clang-format", "-i", "-style=file"]
+                with ThreadPoolExecutor(max_workers=args.jobs) as ex:
+                    list(ex.map(lambda p: run(fmt_cmd + [str(p)], project_root, log_path), files))
         except Exception:
             pass
 
