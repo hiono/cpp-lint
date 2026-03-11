@@ -33,3 +33,23 @@ Before applying fixes, the agent should provide an **Advice Summary**:
 - **Re-run**: Always run `cpp-lint changed` after any fix to confirm
   resolution.
 
+## 5. jq Quick Reference (Surgical Triage)
+
+To save tokens, use `jq` to query the `machine_report` instead of reading the
+entire file:
+
+```bash
+# Count issues by severity
+jq '.summary.issues' <machine_report>
+
+# List unique files with warnings
+jq '.issues[] | select(.severity == "warning") | .file' <machine_report> | sort | uniq
+
+# Get all issues for a specific file
+jq '.issues[] | select(.file == "src/main.cpp")' <machine_report>
+
+# Show top 5 safe fix candidates
+jq '.fixes | to_entries | .[:5]' <machine_report>
+```
+
+

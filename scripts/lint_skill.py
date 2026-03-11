@@ -503,7 +503,20 @@ def main() -> int:
     )
     (lint_base / "report.sarif").write_text(generate_sarif(issues, project_root))
 
-    print(str(report_path))
+    # Final concise output for Token efficiency
+    summary = {
+        "quick_ref": {
+            "formatted_count": len(modified_files),
+            "errors": sum(1 for i in issues if i.severity == "error"),
+            "warnings": sum(1 for i in issues if i.severity == "warning"),
+        },
+        "artifacts": {
+            "human_report": str(report_path),
+            "machine_report": str((lint_base / "report.json").resolve()),
+            "sarif_report": str((lint_base / "report.sarif").resolve()),
+        },
+    }
+    print(json.dumps(summary, ensure_ascii=False))
     return 0
 
 
