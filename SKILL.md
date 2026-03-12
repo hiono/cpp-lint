@@ -1,15 +1,17 @@
-# C++ Lint Skill
+name: cpp-lint
+description: "Multi-threaded C++ static analysis and formatting. Use when Claude needs to: (1) Check C++ code quality against Git index, (2) Apply safe clang-tidy fixes, or (3) Format code using clang-format. Optimized for surgical noise reduction."
 
-Expert C++ code quality automation for AI Agents.
+# C++ Analysis & Formatting
 
-## Capabilities
+Automate C++ code quality checks using `cpp-lint`.
 
-- High-performance linting via \`cpp-lint\`.
-- Surgical noise filtering using Git-Native logic.
-- Automated formatting and safe fixes.
+## 📋 Workflow
 
-## Instructions
+1. **Analysis**: Run `./skill/cpp-lint/scripts/cpp-lint changed`.
+2. **Triage**: Parse `.lint/lint_report.json` using `jq` to isolate critical issues.
+3. **Execution**: Run `./skill/cpp-lint/scripts/cpp-lint --fix` for automated remediation.
+4. **Verification**: Re-run analysis to confirm resolution.
 
-1. **Analysis**: Run \`./scripts/cpp-lint changed\` to see issues.
-2. **Triage**: Use \`jq\` on \`.lint/lint_report.json\`.
-3. **Execution**: Run \`./scripts/cpp-lint --fix\` after approval.
+## 🛠 Precision Triage
+
+Refer to **[protocol.md](references/protocol.md)** for advanced `jq` patterns and reasoning logic.

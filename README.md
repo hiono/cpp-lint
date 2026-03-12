@@ -21,11 +21,14 @@ git clone https://github.com/hiono/cpp-lint ~/.agents/skills/cpp-lint
 ## 📖 Usage
 
 ```bash
-# Lint git-modified files (default)
+# Lint git-modified files (Explicit scope)
 ./scripts/cpp-lint changed
 
-# Apply safe fixes and auto-format
-./scripts/cpp-lint --fix
+# Lint all tracked files
+./scripts/cpp-lint all
+
+# Apply safe fixes to modified files
+./scripts/cpp-lint changed --fix
 ```
 
 ## 🤖 Reasoning Protocol
@@ -33,4 +36,4 @@ git clone https://github.com/hiono/cpp-lint ~/.agents/skills/cpp-lint
 Refer to **[protocol.md](references/protocol.md)** for automated triage logic.
 
 ---
-Maintained by **hiono**.
+Maintained by **hiono**. Version **v0.2.2**.
