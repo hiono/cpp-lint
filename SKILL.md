@@ -38,6 +38,12 @@ Run `cpp-lint` to check C++ code quality.
    **Auto-fix safe?** → Pass `--apply-fixes`.
 4. **Verification**: Re-run analysis to confirm resolution.
 
+## Reports
+
+- **Location**: `cpp_lint_reports/` directory in project root
+- **Manifest**: `.cpp-lint-manifest.json` contains absolute paths to all reports
+- **Formats**: `lint_report.json`, `lint_report.md`, `report.sarif`
+
 ## Precision Triage
 
 Read **[protocol.md](references/protocol.md)** for advanced `jq` patterns and reasoning logic.

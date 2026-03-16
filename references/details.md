@@ -19,11 +19,11 @@
 3. **Execute clang-tidy**: Analyzes selected files and generates fix
     suggestions in YAML format via `-export-fixes`.
 4. **Generate Reports**: Parses logs to create `lint_report.md` (for humans)
-    and `.lint/report.json` (for machine processing).
+    and `cpp_lint_reports/report.json` (for machine processing).
 
 ## Fix Workflow
 
-- Generated `.lint/fixes/*.yaml` files can be applied in bulk using the
-  provided `.lint/apply_fixes.sh`.
+- Generated `cpp_lint_reports/fixes/*.yaml` files can be applied in bulk using the
+  provided `cpp_lint_reports/apply_fixes.sh`.
 - **Recommendation**: Always review changes via `git diff` before applying
   fixes to ensure intended behavior.

@@ -7,7 +7,8 @@ When using \`cpp-lint\`, follow this logic to maximize success:
 - **Execution**: Run \`cpp-lint changed\` (without \`--fix\`) to generate a dry
   run report.
 - **Locate Artifacts**: \`cpp-lint\` stores structured data (\`lint_report.json\`)
-  inside the **\`.lint\` directory located in your Build Directory**.
+  inside the **\`cpp_lint_reports\` directory located in your Project Root**.
+- **Manifest**: \`.cpp-lint-manifest.json\` contains absolute paths to all reports.
 - **Read Data**: Always parse the \`lint_report.json\` for reliable diagnostic
   data.
 

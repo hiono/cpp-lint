@@ -66,7 +66,7 @@ MARKDOWN_TEMPLATE = """
 - **Warnings**: {{ sev_counts.warning or 0 }}
 
 ### 📦 Detailed Artifacts
-- Detailed data is in the build directory's `.lint/` folder.
+- Detailed data is in the `cpp_lint_reports/` folder.
 
 {% if yaml_index %}
 ### Fixes: {{ yaml_index|length }} files (Safe: {{ safe_count }})
@@ -341,7 +341,7 @@ def main() -> int:
 
     root = Path(args.project_root).resolve()
     os.chdir(str(root))
-    log_path, report_path = Path("/tmp/lint.log"), root / "lint_report.md"
+    log_path = Path("/tmp/lint.log")
     if log_path.exists():
         log_path.unlink()
 
@@ -349,10 +349,11 @@ def main() -> int:
     if not ok:
         return 1
 
-    lint_base = (build_dir or root) / ".lint"
+    lint_base = root / "cpp_lint_reports"
     fixes_dir = lint_base / "fixes"
     for d in [lint_base, fixes_dir]:
         d.mkdir(parents=True, exist_ok=True)
+    report_path = lint_base / "lint_report.md"
 
     files = get_git_files(root, args.scope)
     if not files:
@@ -448,6 +449,17 @@ def main() -> int:
     )
 
     print_summary(True, issues, modified_files, report_path, lint_base)
+
+    # Write manifest for cross-skill discovery
+    manifest = {
+        "report_dir": str(lint_base.resolve()),
+        "json_report": str((lint_base / "lint_report.json").resolve()),
+        "md_report": str(report_path.resolve()),
+        "sarif_report": str((lint_base / "report.sarif").resolve()),
+        "timestamp": datetime.now().isoformat(),
+    }
+    (root / ".cpp-lint-manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
+
     return 0
 
 

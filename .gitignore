@@ -3,6 +3,7 @@
 .ruff_cache/
 __pycache__/
 *.skill
-.lint/
+.cpp-lint-manifest.json
+cpp_lint_reports/
 lint_report.md
 node_modules/
