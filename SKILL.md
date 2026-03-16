@@ -7,13 +7,6 @@ description: |
     3. Format code using clang-format,
     4. Generate lint reports (JSON, SARIF, Markdown),
     5. Triage C++ warnings/errors with jq-based surgical filtering.
-metadata:
-  version: "0.3.0"
-  agent: build
-  models:
-    - copilot/gpt-4.1
-    - copilot/gpt-4o
-    - opencode/big-picle
 ---
 
 # C++ Analysis & Formatting
