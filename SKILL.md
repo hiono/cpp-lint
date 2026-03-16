@@ -34,8 +34,19 @@ Run `cpp-lint` to check C++ code quality.
 ## Reports
 
 - **Location**: `cpp_lint_reports/` directory in project root
-- **Manifest**: `.cpp-lint-manifest.json` contains absolute paths to all reports
+- **Manifest**: `.cpp-lint-manifest.json` contains relative paths to all reports
 - **Formats**: `lint_report.json`, `lint_report.md`, `report.sarif`
+
+## Execution
+
+**Always use `uv run --script` to execute this skill:**
+```bash
+uv run --script scripts/cpp-lint <scope> [options]
+```
+
+**Why:** Python environments managed by uv (PEP 668 externally-managed) block `pip install`. Running with `python3` directly will fail when auto-installing jinja2. `uv run --script` handles PEP 723 inline dependencies correctly.
+
+**Note:** Run from the skill root directory or use the agent's skill tool to resolve the path.
 
 ## Precision Triage
 
