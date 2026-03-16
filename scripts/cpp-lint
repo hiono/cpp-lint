@@ -455,12 +455,12 @@ def main() -> int:
 
     print_summary(True, issues, modified_files, report_path, lint_base)
 
-    # Write manifest for cross-skill discovery
+    # Write manifest for cross-skill discovery (relative paths for portability)
     manifest = {
-        "report_dir": str(lint_base.resolve()),
-        "json_report": str((lint_base / "lint_report.json").resolve()),
-        "md_report": str(report_path.resolve()),
-        "sarif_report": str((lint_base / "report.sarif").resolve()),
+        "report_dir": str(lint_base.relative_to(root)),
+        "json_report": str((lint_base / "lint_report.json").relative_to(root)),
+        "md_report": str(report_path.relative_to(root)),
+        "sarif_report": str((lint_base / "report.sarif").relative_to(root)),
         "timestamp": datetime.now().isoformat(),
     }
     (root / ".cpp-lint-manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
