@@ -354,7 +354,7 @@ def main() -> int:
     if not ok:
         return 1
 
-    lint_base = root / "cpp_lint_reports"
+    lint_base = root / "build" / ".agents" / "cpp_lint_reports"
     fixes_dir = lint_base / "fixes"
     for d in [lint_base, fixes_dir]:
         d.mkdir(parents=True, exist_ok=True)
@@ -464,7 +464,8 @@ def main() -> int:
         "sarif_report": str((lint_base / "report.sarif").relative_to(root)),
         "timestamp": datetime.now().isoformat(),
     }
-    manifest_path = root / ".cpp-lint-manifest.json"
+    manifest_path = root / "build" / ".agents" / "cpp-lint-manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
     manifest_path.flush()
 

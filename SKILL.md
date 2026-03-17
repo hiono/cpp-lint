@@ -33,9 +33,16 @@ Run `cpp-lint` to check C++ code quality.
 
 ## Reports
 
-- **Location**: `cpp_lint_reports/` directory in project root
-- **Manifest**: `.cpp-lint-manifest.json` contains relative paths to all reports
+- **Reports**: `build/.agents/cpp_lint_reports/` directory
+- **Manifest**: `build/.agents/cpp-lint-manifest.json`
 - **Formats**: `lint_report.json`, `lint_report.md`, `report.sarif`
+
+## Requirements
+
+- **compile_commands.json**: Required for clang-tidy. Generation is user responsibility.
+  - CMake: `cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON`
+  - Cpp-lint auto-copies it from `build/` to project root
+  - Without it, cpp-lint exits with error
 
 ## Execution
 
