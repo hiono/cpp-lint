@@ -454,6 +454,7 @@ def main() -> int:
     )
 
     print_summary(True, issues, modified_files, report_path, lint_base)
+    sys.stdout.flush()
 
     # Write manifest for cross-skill discovery (relative paths for portability)
     manifest = {
@@ -463,7 +464,9 @@ def main() -> int:
         "sarif_report": str((lint_base / "report.sarif").relative_to(root)),
         "timestamp": datetime.now().isoformat(),
     }
-    (root / ".cpp-lint-manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
+    manifest_path = root / ".cpp-lint-manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
+    manifest_path.flush()
 
     return 0
 
