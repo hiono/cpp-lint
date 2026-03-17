@@ -21,7 +21,7 @@ Run `cpp-lint` to check C++ code quality.
 
 ## Workflow
 
-1. **Analysis**: Run `./skill/cpp-lint/scripts/cpp-lint changed`.
+1. **Analysis**: Run `scripts/cpp-lint changed`.
 2. **Triage**: Determine scope:
    **Changed files only?** → Pass `--changed` (default)
    **Full project?** → Pass `--all`
@@ -39,14 +39,17 @@ Run `cpp-lint` to check C++ code quality.
 
 ## Execution
 
-**Always use `uv run --script` to execute this skill:**
-```bash
-uv run --script scripts/cpp-lint <scope> [options]
-```
+To run this skill manually, locate the script in the skill directory (for example, `~/.agents/skills/cpp-lint/scripts/cpp-lint`)
+and execute it from the project root directory.
+
+Example:
+  ~/.agents/skills/cpp-lint/scripts/cpp-lint changed
+
+Note: The `~/` in the example will be expanded to your home directory by the shell.
 
 **Why:** Python environments managed by uv (PEP 668 externally-managed) block `pip install`. Running with `python3` directly will fail when auto-installing jinja2. `uv run --script` handles PEP 723 inline dependencies correctly.
 
-**Note:** Run from the skill root directory or use the agent's skill tool to resolve the path.
+**Note:** This skill is designed to be run from the project root directory. The skill tool handles the path resolution when invoked via `@skill`.
 
 ## Precision Triage
 
